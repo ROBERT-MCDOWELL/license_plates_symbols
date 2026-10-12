@@ -70,6 +70,7 @@ def setup_project():
 import sys
 import os
 import urllib.request
+import urllib.error
 import json
 import ssl
 import time
@@ -177,10 +178,15 @@ def fetch_symbol_if_needed(dept_code):
                         with open(sym_path, "wb") as f:
                             f.write(content)
                         print(f"[✓] Downloaded symbol for {dept_code}")
-                        # Random pause between 1 and 3 seconds to prevent rate limiting (HTTP 429)
                         sleep_time = random.uniform(1.0, 3.0)
                         time.sleep(sleep_time)
                         return sym_path
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print(f"[X] HTTP Error 429: Too Many Requests on department {dept_code}. Wikimedia is rate-limiting. Aborting script completely.")
+            sys.exit(1)
+        else:
+            print(f"[!] HTTP Error {e.code} for {dept_code}: {e.reason}")
     except Exception as e:
         print(f"[!] Could not download symbol for {dept_code}: {e}")
     return ""
