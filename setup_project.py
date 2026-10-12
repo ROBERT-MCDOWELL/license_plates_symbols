@@ -367,7 +367,6 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
-    print(f"[✓] Updated script with automatic HTTP 429 back-off retry mechanism (120s max timeout, 10s intervals).")
 
 if __name__ == "__main__":
     setup_project()
