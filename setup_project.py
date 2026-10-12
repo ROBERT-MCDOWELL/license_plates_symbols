@@ -153,10 +153,6 @@ def print_help():
     print("Usage:")
     print("  python license_plates_sticker.py <dept_code> [sheet_format]")
     print("  python license_plates_sticker.py ALL [sheet_format]")
-    print("")
-    print("Arguments:")
-    print("  <dept_code>     Department number (e.g., 38, 75, 2A, 974) or 'ALL'")
-    print("  [sheet_format]  Paper size format: A4, A3, or SRA3 (default: A3)")
 
 def fetch_symbol_if_needed(dept_code):
     sym_path = os.path.join("symbols", f"{dept_code}.svg")
@@ -164,7 +160,7 @@ def fetch_symbol_if_needed(dept_code):
         return sym_path
     
     if dept_code not in DEPT_WIKI_FILES:
-        return ""
+        return None
 
     filename = DEPT_WIKI_FILES[dept_code]
     api_url = f"https://commons.wikimedia.org/w/api.php?action=query&titles=File:{urllib.parse.quote(filename)}&prop=imageinfo&iiprop=url&format=json"
@@ -173,8 +169,8 @@ def fetch_symbol_if_needed(dept_code):
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    max_wait = 120  # Max total seconds to wait out 429 rate limit
-    interval = 10   # Retry every 10 seconds
+    max_wait = 120
+    interval = 10
     elapsed = 0
 
     while elapsed <= max_wait:
@@ -192,24 +188,24 @@ def fetch_symbol_if_needed(dept_code):
                             with open(sym_path, "wb") as f:
                                 f.write(content)
                             print(f"[✓] Downloaded symbol for {dept_code}")
-                            time.sleep(random.uniform(1.0, 3.0)) # Normal polite jitter delay
+                            time.sleep(random.uniform(1.0, 3.0))
                             return sym_path
-                return ""
+                return None
         except urllib.error.HTTPError as e:
             if e.code == 429:
                 if elapsed == 0:
-                    print(f"[!] HTTP 429 Too Many Requests on {dept_code}. Rate limited by Wikimedia. Waiting up to {max_wait}s (retrying every {interval}s)...")
+                    print(f"[!] HTTP 429 Too Many Requests on {dept_code}. Rate limited. Waiting up to {max_wait}s (retrying every {interval}s)...")
                 time.sleep(interval)
                 elapsed += interval
             else:
                 print(f"[!] HTTP Error {e.code} for {dept_code}: {e.reason}")
-                return ""
+                return None
         except Exception as e:
             print(f"[!] Error fetching {dept_code}: {e}")
-            return ""
+            return None
 
-    print(f"[X] Timed out waiting for Wikimedia rate limit reset on department {dept_code}.")
-    return ""
+    print(f"[X] Timed out waiting for rate limit reset on department {dept_code}.")
+    return None
 
 def generate_single_sticker_svg(dept_code, symbol_path):
     french_flag = \"\"\"
@@ -238,12 +234,7 @@ def generate_single_sticker_svg(dept_code, symbol_path):
             symbol_markup = ""
 
     if not symbol_markup:
-        symbol_markup = f\"\"\"
-        <g id="dept-symbol" transform="translate(12, 66)">
-            <rect x="0" y="0" width="25" height="25" fill="none" stroke="#FFFFFF" stroke-width="0.5" stroke-dasharray="1,1" opacity="0.5"/>
-            <text x="12.5" y="13.5" font-family="Arial, sans-serif" font-size="3.5" fill="#FFFFFF" text-anchor="middle">DEPT {dept_code}</text>
-        </g>
-        \"\"\"
+        return None  # Return None if symbol is missing/invalid so we don't generate placeholder sheets
 
     svg = f\"\"\"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{TOTAL_W}mm" height="{TOTAL_H}mm" viewBox="0 0 {TOTAL_W} {TOTAL_H}">
   <defs>
@@ -353,8 +344,15 @@ if __name__ == "__main__":
     for dept_code in departments_to_process:
         print(f"\\n[+] Processing Department {dept_code}...")
         symbol_path = fetch_symbol_if_needed(dept_code)
+        if not symbol_path:
+            print(f"[!] Skipping sheet generation for Dept {dept_code} due to missing symbol.")
+            continue
 
         single_svg = generate_single_sticker_svg(dept_code, symbol_path)
+        if not single_svg:
+            print(f"[!] Skipping sheet generation for Dept {dept_code} due to invalid symbol SVG.")
+            continue
+
         single_file = os.path.join("output", f"sticker_{dept_code}_single.svg")
         with open(single_file, "w", encoding="utf-8") as f:
             f.write(single_svg)
