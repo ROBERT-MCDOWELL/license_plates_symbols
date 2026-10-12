@@ -157,11 +157,6 @@ def print_help():
     print("Arguments:")
     print("  <dept_code>     Department number (e.g., 38, 75, 2A, 974) or 'ALL'")
     print("  [sheet_format]  Paper size format: A4, A3, or SRA3 (default: A3)")
-    print("")
-    print("Examples:")
-    print("  python license_plates_sticker.py 38 A3")
-    print("  python license_plates_sticker.py 75 SRA3")
-    print("  python license_plates_sticker.py ALL A3")
 
 def fetch_symbol_if_needed(dept_code):
     sym_path = os.path.join("symbols", f"{dept_code}.svg")
@@ -171,7 +166,6 @@ def fetch_symbol_if_needed(dept_code):
     if dept_code not in DEPT_WIKI_FILES:
         return ""
 
-    print(f"[+] Fetching symbol for {dept_code} from Wikimedia Commons...")
     filename = DEPT_WIKI_FILES[dept_code]
     api_url = f"https://commons.wikimedia.org/w/api.php?action=query&titles=File:{urllib.parse.quote(filename)}&prop=imageinfo&iiprop=url&format=json"
     
@@ -179,32 +173,42 @@ def fetch_symbol_if_needed(dept_code):
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    req = urllib.request.Request(api_url, headers={'User-Agent': 'LicensePlateStickerBot/1.0'})
-    
-    try:
-        with urllib.request.urlopen(req, context=ctx) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            pages = data.get("query", {}).get("pages", {})
-            for page_id, page_info in pages.items():
-                if int(page_id) > 0 and "imageinfo" in page_info:
-                    img_url = page_info["imageinfo"][0]["url"]
-                    img_req = urllib.request.Request(img_url, headers={'User-Agent': 'LicensePlateStickerBot/1.0'})
-                    with urllib.request.urlopen(img_req, context=ctx) as img_resp:
-                        content = img_resp.read()
-                        with open(sym_path, "wb") as f:
-                            f.write(content)
-                        print(f"[✓] Downloaded symbol for {dept_code}")
-                        sleep_time = random.uniform(1.0, 3.0)
-                        time.sleep(sleep_time)
-                        return sym_path
-    except urllib.error.HTTPError as e:
-        if e.code == 429:
-            print(f"[X] HTTP Error 429: Too Many Requests on department {dept_code}. Wikimedia is rate-limiting. Aborting script completely.")
-            sys.exit(1)
-        else:
-            print(f"[!] HTTP Error {e.code} for {dept_code}: {e.reason}")
-    except Exception as e:
-        print(f"[!] Could not download symbol for {dept_code}: {e}")
+    max_wait = 120  # Max total seconds to wait out 429 rate limit
+    interval = 10   # Retry every 10 seconds
+    elapsed = 0
+
+    while elapsed <= max_wait:
+        try:
+            req = urllib.request.Request(api_url, headers={'User-Agent': 'LicensePlateStickerBot/1.0'})
+            with urllib.request.urlopen(req, context=ctx) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                pages = data.get("query", {}).get("pages", {})
+                for page_id, page_info in pages.items():
+                    if int(page_id) > 0 and "imageinfo" in page_info:
+                        img_url = page_info["imageinfo"][0]["url"]
+                        img_req = urllib.request.Request(img_url, headers={'User-Agent': 'LicensePlateStickerBot/1.0'})
+                        with urllib.request.urlopen(img_req, context=ctx) as img_resp:
+                            content = img_resp.read()
+                            with open(sym_path, "wb") as f:
+                                f.write(content)
+                            print(f"[✓] Downloaded symbol for {dept_code}")
+                            time.sleep(random.uniform(1.0, 3.0)) # Normal polite jitter delay
+                            return sym_path
+                return ""
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                if elapsed == 0:
+                    print(f"[!] HTTP 429 Too Many Requests on {dept_code}. Rate limited by Wikimedia. Waiting up to {max_wait}s (retrying every {interval}s)...")
+                time.sleep(interval)
+                elapsed += interval
+            else:
+                print(f"[!] HTTP Error {e.code} for {dept_code}: {e.reason}")
+                return ""
+        except Exception as e:
+            print(f"[!] Error fetching {dept_code}: {e}")
+            return ""
+
+    print(f"[X] Timed out waiting for Wikimedia rate limit reset on department {dept_code}.")
     return ""
 
 def generate_single_sticker_svg(dept_code, symbol_path):
@@ -310,7 +314,7 @@ def generate_imposition_sheet(dept_code, single_svg_str, sheet_type="A3"):
 
         <circle cx="8" cy="{sheet_h - 8}" r="4" />
         <line x1="2" y1="{sheet_h - 8}" x2="14" y2="{sheet_h - 8}" />
-        <line x1="8" y1="{sheet_h - 14}" x2="8" y2="8" />
+        <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
 
         <circle cx="{sheet_w - 8}" cy="{sheet_h - 8}" r="4" />
         <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" />
@@ -363,6 +367,7 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated script with automatic HTTP 429 back-off retry mechanism (120s max timeout, 10s intervals).")
 
 if __name__ == "__main__":
     setup_project()
