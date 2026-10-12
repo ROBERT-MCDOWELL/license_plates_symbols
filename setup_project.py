@@ -147,6 +147,22 @@ DEPT_WIKI_FILES = {
     "976": "Blason département fr Mayotte.svg"
 }
 
+def print_help():
+    print("French License Plate Sticker Imposition Generator")
+    print("================================================")
+    print("Usage:")
+    print("  python license_plates_sticker.py <dept_code> [sheet_format]")
+    print("  python license_plates_sticker.py ALL [sheet_format]")
+    print("")
+    print("Arguments:")
+    print("  <dept_code>     Department number (e.g., 38, 75, 2A, 974) or 'ALL'")
+    print("  [sheet_format]  Paper size format: A4, A3, or SRA3 (default: A3)")
+    print("")
+    print("Examples:")
+    print("  python license_plates_sticker.py 38 A3")
+    print("  python license_plates_sticker.py 75 SRA3")
+    print("  python license_plates_sticker.py ALL A3")
+
 def fetch_symbol_if_needed(dept_code):
     sym_path = os.path.join("symbols", f"{dept_code}.svg")
     if os.path.exists(sym_path) and os.path.getsize(sym_path) > 100:
@@ -192,14 +208,14 @@ def fetch_symbol_if_needed(dept_code):
     return ""
 
 def generate_single_sticker_svg(dept_code, symbol_path):
-    french_flag = """
+    french_flag = \"\"\"
       <g id="french-flag">
         <rect x="0" y="0" width="8.33" height="16.66" fill="#002395" />
         <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
         <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
         <rect x="0" y="0" width="25" height="16.66" fill="none" stroke="#FFFFFF" stroke-width="0.3" opacity="0.4"/>
       </g>
-    """
+    \"\"\"
 
     symbol_markup = ""
     if symbol_path and os.path.exists(symbol_path) and os.path.getsize(symbol_path) > 100:
@@ -207,25 +223,25 @@ def generate_single_sticker_svg(dept_code, symbol_path):
             tree = ET.parse(symbol_path)
             root = tree.getroot()
             symbol_inner = "".join([ET.tostring(child, encoding='unicode') for child in root])
-            symbol_markup = f"""
+            symbol_markup = f\"\"\"
             <g id="dept-symbol" transform="translate(12, 66)">
                 <svg width="25" height="25" viewBox="{root.attrib.get('viewBox', '0 0 100 100')}">
                     {symbol_inner}
                 </svg>
             </g>
-            """
+            \"\"\"
         except Exception:
             symbol_markup = ""
 
     if not symbol_markup:
-        symbol_markup = f"""
+        symbol_markup = f\"\"\"
         <g id="dept-symbol" transform="translate(12, 66)">
             <rect x="0" y="0" width="25" height="25" fill="none" stroke="#FFFFFF" stroke-width="0.5" stroke-dasharray="1,1" opacity="0.5"/>
             <text x="12.5" y="13.5" font-family="Arial, sans-serif" font-size="3.5" fill="#FFFFFF" text-anchor="middle">DEPT {dept_code}</text>
         </g>
-        """
+        \"\"\"
 
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{TOTAL_W}mm" height="{TOTAL_H}mm" viewBox="0 0 {TOTAL_W} {TOTAL_H}">
+    svg = f\"\"\"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{TOTAL_W}mm" height="{TOTAL_H}mm" viewBox="0 0 {TOTAL_W} {TOTAL_H}">
   <defs>
     {french_flag}
     <clipPath id="sticker-cut">
@@ -254,7 +270,7 @@ def generate_single_sticker_svg(dept_code, symbol_path):
 
   <rect x="{BLEED}" y="{BLEED}" width="{STICKER_WIDTH}" height="{STICKER_HEIGHT}" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" 
         fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" id="CutContour" />
-</svg>"""
+</svg>\"\"\"
     return svg
 
 def generate_imposition_sheet(dept_code, single_svg_str, sheet_type="A3"):
@@ -282,7 +298,7 @@ def generate_imposition_sheet(dept_code, single_svg_str, sheet_type="A3"):
             y = start_y + r * (TOTAL_H + gap_y)
             grid_items.append(f'<g transform="translate({x}, {y})">{inner_content}</g>')
 
-    reg_marks = f"""
+    reg_marks = f\"\"\"
       <g stroke="#000000" stroke-width="0.25" fill="none">
         <circle cx="8" cy="8" r="4" />
         <line x1="2" y1="8" x2="14" y2="8" />
@@ -294,28 +310,27 @@ def generate_imposition_sheet(dept_code, single_svg_str, sheet_type="A3"):
 
         <circle cx="8" cy="{sheet_h - 8}" r="4" />
         <line x1="2" y1="{sheet_h - 8}" x2="14" y2="{sheet_h - 8}" />
-        <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
+        <line x1="8" y1="{sheet_h - 14}" x2="8" y2="8" />
 
         <circle cx="{sheet_w - 8}" cy="{sheet_h - 8}" r="4" />
         <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" />
         <line x1="{sheet_w - 8}" y1="{sheet_h - 14}" x2="{sheet_w - 8}" y2="{sheet_h - 2}" />
       </g>
-    """
+    \"\"\"
 
-    imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
+    imposition_svg = f\"\"\"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
   <text x="{start_x}" y="{start_y - 5}" font-size="4" fill="#333333">IMPOSITION: Dept {dept_code} | Format: {sheet_type} | Qty: {total_stickers} units | CutContour Enabled</text>
   {''.join(grid_items)}
   {reg_marks}
-</svg>"""
+</svg>\"\"\"
     return imposition_svg
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python license_plates_sticker.py <dept_code> [sheet_format]")
-        print("       python license_plates_sticker.py all [sheet_format]")
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ["--help", "-h", "HELP"]:
+        print_help()
+        sys.exit(0)
 
     arg1 = sys.argv[1].upper()
     sheet_format = sys.argv[2].upper() if len(sys.argv) > 2 else "A3"
@@ -348,6 +363,7 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated script with proper --help handling.")
 
 if __name__ == "__main__":
     setup_project()
