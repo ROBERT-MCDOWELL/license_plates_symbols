@@ -14,7 +14,6 @@ SHEET_SIZES = {
     "SRA3": (320.0, 450.0),
 }
 
-# Compact individual decal dimensions (plus 1.5mm bleed on each side for cutting)
 BLEED = 1.5
 FLAG_W, FLAG_H = 25.0, 16.66
 CREST_W, CREST_H = 25.0, 25.0
@@ -59,7 +58,7 @@ DEPT_WIKI_FILES = {
     "68": "Blason département fr Haut-Rhin.svg", "69": "Blason département fr Rhône.svg",
     "70": "Blason département fr Haute-Saône.svg", "71": "Blason département fr Saône-et-Loire.svg",
     "72": "Blason département fr Sarthe.svg", "73": "Blason département fr Savoie.svg",
-    "74": "Blason département fr Haute-Savoie.svg", "75": "Blason ville fr Paris.svg",
+    "74": "Blason département fr Haute-Savoie.svg", "75": "Armoiries de la ville de Paris (1949).svg",
     "76": "Blason département fr Seine-Maritime.svg", "77": "Blason département fr Seine-et-Marne.svg",
     "78": "Blason département fr Yvelines.svg", "79": "Blason département fr Deux-Sèvres.svg",
     "80": "Blason département fr Somme.svg", "81": "Blason département fr Tarn.svg",
@@ -70,14 +69,16 @@ DEPT_WIKI_FILES = {
     "90": "Blason département fr Territoire de Belfort.svg", "91": "Blason département fr Essonne.svg",
     "92": "Blason département fr Hauts-de-Seine.svg", "93": "Blason département fr Seine-Saint-Denis.svg",
     "94": "Blason département fr Val-de-Marne.svg", "95": "Blason département fr Val-d'Oise.svg",
-    "971": "Blason région fr Guadeloupe.svg", "972": "Blason département fr Martinique.svg",
-    "973": "Blason département fr Guyane.svg", "974": "Blason région fr La Réunion.svg",
+    "971": "Coat of arms of Guadeloupe.svg",
+    "972": "Coat of arms of Martinique.svg",
+    "973": "Coat of arms of French Guiana, according to the original displayed at the Museum Franconie, at Cayenne.svg",
+    "974": "Armoiries Réunion.svg",
     "976": "Blason département fr Mayotte.svg"
 }
 
 def print_help():
-    print("French License Plate Sticker Imposition Generator (Compact Independent Decals)")
-    print("============================================================================")
+    print("French License Plate Sticker Imposition Generator (Memory-Optimized)")
+    print("===================================================================")
     print("Usage:")
     print("  python license_plates_sticker.py <dept_code> [sheet_format]")
     print("  python license_plates_sticker.py ALL [sheet_format]")
@@ -149,7 +150,7 @@ DEPT_WIKI_FILES = {
     "68": "Blason département fr Haut-Rhin.svg", "69": "Blason département fr Rhône.svg",
     "70": "Blason département fr Haute-Saône.svg", "71": "Blason département fr Saône-et-Loire.svg",
     "72": "Blason département fr Sarthe.svg", "73": "Blason département fr Savoie.svg",
-    "74": "Blason département fr Haute-Savoie.svg", "75": "Blason ville fr Paris.svg",
+    "74": "Blason département fr Haute-Savoie.svg", "75": "Armoiries de la ville de Paris (1949).svg",
     "76": "Blason département fr Seine-Maritime.svg", "77": "Blason département fr Seine-et-Marne.svg",
     "78": "Blason département fr Yvelines.svg", "79": "Blason département fr Deux-Sèvres.svg",
     "80": "Blason département fr Somme.svg", "81": "Blason département fr Tarn.svg",
@@ -160,8 +161,10 @@ DEPT_WIKI_FILES = {
     "90": "Blason département fr Territoire de Belfort.svg", "91": "Blason département fr Essonne.svg",
     "92": "Blason département fr Hauts-de-Seine.svg", "93": "Blason département fr Seine-Saint-Denis.svg",
     "94": "Blason département fr Val-de-Marne.svg", "95": "Blason département fr Val-d'Oise.svg",
-    "971": "Blason région fr Guadeloupe.svg", "972": "Blason département fr Martinique.svg",
-    "973": "Blason département fr Guyane.svg", "974": "Blason région fr La Réunion.svg",
+    "971": "Coat of arms of Guadeloupe.svg",
+    "972": "Coat of arms of Martinique.svg",
+    "973": "Coat of arms of French Guiana, according to the original displayed at the Museum Franconie, at Cayenne.svg",
+    "974": "Armoiries Réunion.svg",
     "976": "Blason département fr Mayotte.svg"
 }
 
@@ -217,7 +220,6 @@ def fetch_symbol_if_needed(dept_code):
     return None
 
 def generate_decal_set_svg(dept_code, symbol_path):
-    # 1. French Flag Decal (Standalone rectangle with rounded corners and white background)
     flag_svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="{FLAG_W + 2*BLEED}mm" height="{FLAG_H + 2*BLEED}mm" viewBox="0 0 {FLAG_W + 2*BLEED} {FLAG_H + 2*BLEED}">
       <g transform="translate({BLEED}, {BLEED})">
@@ -226,79 +228,89 @@ def generate_decal_set_svg(dept_code, symbol_path):
         <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
         <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
       </g>
-      <!-- CutContour -->
       <rect x="{BLEED}" y="{BLEED}" width="{FLAG_W}" height="{FLAG_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="1" id="CutContour" />
     </svg>
     """
 
-    # 2. Department Crest Decal (Standalone badge with white background)
     symbol_inner = ""
+    viewbox = "0 0 100 100"
     if symbol_path and os.path.exists(symbol_path) and os.path.getsize(symbol_path) > 100:
         try:
             tree = ET.parse(symbol_path)
             root = tree.getroot()
+            viewbox = root.attrib.get('viewBox', '0 0 100 100')
             symbol_inner = "".join([ET.tostring(child, encoding='unicode') for child in root])
         except Exception:
             symbol_inner = ""
 
     if not symbol_inner:
-        # Fallback text crest if SVG is missing
         symbol_inner = f'<text x="{CREST_W/2}" y="{CREST_H/2}" font-family="Arial" font-size="5" fill="#000" text-anchor="middle">{dept_code}</text>'
 
     crest_svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="{CREST_W + 2*BLEED}mm" height="{CREST_H + 2*BLEED}mm" viewBox="0 0 {CREST_W + 2*BLEED} {CREST_H + 2*BLEED}">
       <g transform="translate({BLEED}, {BLEED})">
         <rect x="0" y="0" width="{CREST_W}" height="{CREST_H}" fill="#FFFFFF" rx="3" />
-        <svg x="2" y="2" width="{CREST_W-4}" height="{CREST_H-4}" viewBox="0 0 100 100">
+        <svg x="2" y="2" width="{CREST_W-4}" height="{CREST_H-4}" viewBox="{viewbox}">
             {symbol_inner}
         </svg>
       </g>
-      <!-- CutContour -->
       <rect x="{BLEED}" y="{BLEED}" width="{CREST_W}" height="{CREST_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
     </svg>
     """
-    return flag_svg, crest_svg
+    return flag_svg, crest_svg, symbol_inner, viewbox
 
-def generate_imposition_sheet(dept_code, flag_svg_str, crest_svg_str, sheet_type="A3"):
+def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3"):
     sheet_w, sheet_h = SHEET_SIZES.get(sheet_type.upper(), SHEET_SIZES["A3"])
     margin_x, margin_y = 15.0, 15.0
     gap = 3.0
     
-    # We arrange independent compact grid rows/columns for flags and crests
     total_w_item = FLAG_W + (2 * BLEED)
     total_h_flag = FLAG_H + (2 * BLEED)
     total_h_crest = CREST_H + (2 * BLEED)
     
     usable_w = sheet_w - (2 * margin_x)
     cols = int((usable_w + gap) // (total_w_item + gap))
-    
     usable_h = sheet_h - (2 * margin_y)
-    
-    # Parse snippets into Element trees for grid placement
-    flag_tree = ET.fromstring(flag_svg_str)
-    crest_tree = ET.fromstring(crest_svg_str)
-    
-    flag_inner = "".join([ET.tostring(child, encoding='unicode') for child in flag_tree])
-    crest_inner = "".join([ET.tostring(child, encoding='unicode') for child in crest_tree])
 
-    grid_items = []
-    current_y = margin_y
-    pair_h = total_h_flag + total_h_crest + gap + 5.0 # Height of one pair set (flag + crest)
-    
+    pair_h = total_h_flag + total_h_crest + gap + 5.0
     pairs_per_col = int(usable_h // pair_h)
     total_sets = cols * pairs_per_col
 
+    # Instanced XML symbols inside <defs> to keep memory footprint near zero
+    defs_section = f"""
+    <defs>
+      <!-- Single Flag Symbol Definition -->
+      <g id="decal-flag">
+        <g transform="translate({BLEED}, {BLEED})">
+          <rect x="0" y="0" width="{FLAG_W}" height="{FLAG_H}" fill="#FFFFFF" rx="1" />
+          <rect x="0" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#002395" />
+          <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
+          <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
+        </g>
+        <rect x="{BLEED}" y="{BLEED}" width="{FLAG_W}" height="{FLAG_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="1" id="CutContour" />
+      </g>
+
+      <!-- Single Crest Symbol Definition -->
+      <g id="decal-crest">
+        <g transform="translate({BLEED}, {BLEED})">
+          <rect x="0" y="0" width="{CREST_W}" height="{CREST_H}" fill="#FFFFFF" rx="3" />
+          <svg x="2" y="2" width="{CREST_W-4}" height="{CREST_H-4}" viewBox="{viewbox}">
+            {symbol_inner}
+          </svg>
+        </g>
+        <rect x="{BLEED}" y="{BLEED}" width="{CREST_W}" height="{CREST_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
+      </g>
+    </defs>
+    """
+
+    grid_items = []
     for r in range(pairs_per_col):
         for c in range(cols):
             x = margin_x + c * (total_w_item + gap)
             y = margin_y + r * pair_h
-            
-            # Place Flag sticker
-            grid_items.append(f'<g transform="translate({x}, {y})">{flag_inner}</g>')
-            # Place Crest sticker right below it
-            grid_items.append(f'<g transform="translate({x}, {y + total_h_flag + 2.0})">{crest_inner}</g>')
+            grid_items.append(f'<use href="#decal-flag" x="{x}" y="{y}" />')
+            grid_items.append(f'<use href="#decal-crest" x="{x}" y="{y + total_h_flag + 2.0}" />')
 
-    # Optical registration marks
     reg_marks = f"""
       <g stroke="#000000" stroke-width="0.25" fill="none">
         <circle cx="8" cy="8" r="4" />
@@ -308,7 +320,7 @@ def generate_imposition_sheet(dept_code, flag_svg_str, crest_svg_str, sheet_type
         <circle cx="8" cy="{sheet_h - 8}" r="4" />
         <line x1="2" y1="{sheet_h - 8}" x2="14" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
         <circle cx="{sheet_w - 8}" cy="{sheet_h - 8}" r="4" />
-        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="{sheet_w - 8}" y1="{sheet_h - 14}" x2="{sheet_w - 8}" y2="{sheet_h - 2}" />
+        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
       </g>
     """
 
@@ -316,6 +328,7 @@ def generate_imposition_sheet(dept_code, flag_svg_str, crest_svg_str, sheet_type
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
   <text x="{margin_x}" y="{margin_y - 5}" font-size="4" fill="#333333">COMPACT DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Qty Pairs: {total_sets} | CutContour Enabled</text>
+  {defs_section}
   {''.join(grid_items)}
   {reg_marks}
 </svg>"""
@@ -347,15 +360,14 @@ if __name__ == "__main__":
             print(f"[!] Skipping Dept {dept_code} due to missing symbol.")
             continue
 
-        flag_svg, crest_svg = generate_decal_set_svg(dept_code, symbol_path)
+        flag_svg, crest_svg, symbol_inner, viewbox = generate_decal_set_svg(dept_code, symbol_path)
         
-        # Save individual decal components for review
         with open(os.path.join("output", f"decal_flag_{dept_code}.svg"), "w", encoding="utf-8") as f:
             f.write(flag_svg)
         with open(os.path.join("output", f"decal_crest_{dept_code}.svg"), "w", encoding="utf-8") as f:
             f.write(crest_svg)
 
-        imposition_svg = generate_imposition_sheet(dept_code, flag_svg, crest_svg, sheet_format)
+        imposition_svg = generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_format)
         sheet_file = os.path.join("output", f"imposition_decals_{dept_code}_{sheet_format}.svg")
         with open(sheet_file, "w", encoding="utf-8") as f:
             f.write(imposition_svg)
@@ -363,6 +375,7 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated setup script with SVG symbol instancing to resolve MemoryError.")
 
 if __name__ == "__main__":
     setup_project()
