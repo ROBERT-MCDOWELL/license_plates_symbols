@@ -101,11 +101,11 @@ SHEET_SIZES = {
 }
 
 BLEED = 1.5
-DECAL_W = 35.0
-DECAL_H = 48.0
+DECAL_W = 30.0  # Reduced width for tighter fit on license plate blue band & higher sheet density
+DECAL_H = 46.0
 
 CUT_COLOR = "#FF007F"
-ROYAL_BLUE = "#0055A5" # Bleu de France
+ROYAL_BLUE = "#0055A5"
 
 DEPT_WIKI_FILES = {
     "01": "Blason département fr Ain.svg", "02": "Blason département fr Aisne.svg",
@@ -229,26 +229,21 @@ def generate_single_piece_svg(dept_code, symbol_path):
     if not symbol_inner:
         symbol_inner = f'<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999999" stroke-width="2" stroke-dasharray="5,5"/>'
 
-    # Transparent background everywhere EXCEPT behind the flag (thin white reserve rectangle)
     svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="{DECAL_W + 2*BLEED}mm" height="{DECAL_H + 2*BLEED}mm" viewBox="0 0 {DECAL_W + 2*BLEED} {DECAL_H + 2*BLEED}">
       <g transform="translate({BLEED}, {BLEED})">
-        <!-- Transparent Canvas (No solid white background rectangle) -->
-
-        <!-- French Flag (Top) with a thin White Reserve Border -->
-        <g transform="translate(5, 4)">
-          <!-- White Reserve / Border behind the flag -->
-          <rect x="-1" y="-1" width="27" height="18.66" fill="#FFFFFF" rx="1.5" />
-          <!-- Royal Blue Flag -->
-          <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
-          <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
-          <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
-          <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
+        <!-- French Flag (Top) with white reserve border -->
+        <g transform="translate(3.5, 3)">
+          <rect x="-1" y="-1" width="24" height="16.66" fill="#FFFFFF" rx="1.5" />
+          <rect x="0" y="0" width="22" height="14.66" fill="#FFFFFF" rx="1" />
+          <rect x="0" y="0" width="7.33" height="14.66" fill="{ROYAL_BLUE}" />
+          <rect x="7.33" y="0" width="7.33" height="14.66" fill="#FFFFFF" />
+          <rect x="14.66" y="0" width="7.33" height="14.66" fill="#ED2939" />
         </g>
 
-        <!-- Department Symbol (Bottom) floating directly on transparent vinyl with NO border -->
-        <g transform="translate(5, 23)">
-          <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
+        <!-- Department Symbol (Bottom) borderless on transparent background -->
+        <g transform="translate(3.5, 21)">
+          <svg x="0" y="0" width="22" height="22" viewBox="{viewbox}">
             {symbol_inner}
           </svg>
         </g>
@@ -263,7 +258,7 @@ def generate_single_piece_svg(dept_code, symbol_path):
 def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3"):
     sheet_w, sheet_h = SHEET_SIZES.get(sheet_type.upper(), SHEET_SIZES["A3"])
     margin_x, margin_y = 12.0, 12.0
-    gap = 2.5
+    gap = 2.0
     
     total_w = DECAL_W + (2 * BLEED)
     total_h = DECAL_H + (2 * BLEED)
@@ -280,17 +275,16 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     <defs>
       <g id="single-decal-piece">
         <g transform="translate({BLEED}, {BLEED})">
-          <!-- Transparent background: Flag has white reserve, Symbol is borderless -->
-          <g transform="translate(5, 4)">
-            <rect x="-1" y="-1" width="27" height="18.66" fill="#FFFFFF" rx="1.5" />
-            <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
-            <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
-            <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
-            <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
+          <g transform="translate(3.5, 3)">
+            <rect x="-1" y="-1" width="24" height="16.66" fill="#FFFFFF" rx="1.5" />
+            <rect x="0" y="0" width="22" height="14.66" fill="#FFFFFF" rx="1" />
+            <rect x="0" y="0" width="7.33" height="14.66" fill="{ROYAL_BLUE}" />
+            <rect x="7.33" y="0" width="7.33" height="14.66" fill="#FFFFFF" />
+            <rect x="14.66" y="0" width="7.33" height="14.66" fill="#ED2939" />
           </g>
 
-          <g transform="translate(5, 23)">
-            <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
+          <g transform="translate(3.5, 21)">
+            <svg x="0" y="0" width="22" height="22" viewBox="{viewbox}">
               {symbol_inner}
             </svg>
           </g>
@@ -316,14 +310,14 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
         <circle cx="8" cy="{sheet_h - 8}" r="4" />
         <line x1="2" y1="{sheet_h - 8}" x2="14" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
         <circle cx="{sheet_w - 8}" cy="{sheet_h - 8}" r="4" />
-        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="{sheet_w - 8}" y1="{sheet_h - 14}" x2="{sheet_w - 8}" y2="{sheet_h - 2}" />
+        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
       </g>
     """
 
     imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
-  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">TRANSPARENT DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
+  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">HIGH-DENSITY TRANSPARENT DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
   {defs_section}
   {''.join(grid_items)}
   {reg_marks}
@@ -365,10 +359,11 @@ if __name__ == "__main__":
         sheet_file = os.path.join("output", f"imposition_single_{dept_code}_{sheet_format}.svg")
         with open(sheet_file, "w", encoding="utf-8") as f:
             f.write(imposition_svg)
-        print(f"[✓] Exported transparent decal imposition sheet -> {sheet_file}")
+        print(f"[✓] Exported high-density transparent decal imposition sheet -> {sheet_file}")
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated setup script: Decal width reduced to 30mm for optimal blue-band fit and maximized sheet density.")
 
 if __name__ == "__main__":
     setup_project()
