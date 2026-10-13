@@ -363,7 +363,6 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
-    print(f"[✓] Updated setup script: Decal width reduced to 30mm for optimal blue-band fit and maximized sheet density.")
 
 if __name__ == "__main__":
     setup_project()
