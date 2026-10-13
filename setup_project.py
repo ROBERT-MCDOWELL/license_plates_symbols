@@ -9,6 +9,8 @@ import random
 import xml.etree.ElementTree as ET
 
 SHEET_SIZES = {
+    "A6": (105.0, 148.0),
+    "A5": (148.0, 210.0),
     "A4": (210.0, 297.0),
     "A3": (297.0, 420.0),
     "SRA3": (320.0, 450.0),
@@ -71,10 +73,11 @@ DEPT_WIKI_FILES = {
 }
 
 def print_help():
-    print("French License Plate Transparent Single-Piece Decal Generator")
-    print("==========================================================")
+    print("French License Plate Multi-Format Decal Generator")
+    print("=================================================")
     print("Usage:")
     print("  python license_plates_sticker.py <dept_code> [sheet_format]")
+    print("  Supported formats: A6, A5, A4, A3, SRA3")
     print("  python license_plates_sticker.py ALL [sheet_format]")
 
 def setup_project():
@@ -95,14 +98,16 @@ import random
 import xml.etree.ElementTree as ET
 
 SHEET_SIZES = {
+    "A6": (105.0, 148.0),
+    "A5": (148.0, 210.0),
     "A4": (210.0, 297.0),
     "A3": (297.0, 420.0),
     "SRA3": (320.0, 450.0),
 }
 
-BLEED = 1.5
-DECAL_W = 30.0  # 30mm total width (matches plate blue strip)
-DECAL_H = 46.0
+FLAG_W, FLAG_H = 32.0, 21.33
+SYMBOL_SIZE = 32.0
+MARGIN_CUT = 2.0
 
 CUT_COLOR = "#FF007F"
 ROYAL_BLUE = "#0055A5"
@@ -165,7 +170,7 @@ DEPT_WIKI_FILES = {
 
 def fetch_symbol_if_needed(dept_code):
     sym_path = os.path.join("symbols", f"{dept_code}.svg")
-    if os.path.exists(sym_path) and os.path.getsize(sym_path) > 100:
+    if os.path.exists(sym_path) and os.path.getsize(sym_path) > 50:
         return sym_path
     
     if dept_code not in DEPT_WIKI_FILES:
@@ -214,82 +219,114 @@ def fetch_symbol_if_needed(dept_code):
             return None
     return None
 
-def generate_single_piece_svg(dept_code, symbol_path):
-    symbol_inner = ""
-    viewbox = "0 0 100 100"
-    if symbol_path and os.path.exists(symbol_path) and os.path.getsize(symbol_path) > 100:
-        try:
-            tree = ET.parse(symbol_path)
-            root = tree.getroot()
-            viewbox = root.attrib.get('viewBox', '0 0 100 100')
-            symbol_inner = "".join([ET.tostring(child, encoding='unicode') for child in root])
-        except Exception:
-            symbol_inner = ""
+def parse_svg_symbol(symbol_path):
+    if not symbol_path or not os.path.exists(symbol_path) or os.path.getsize(symbol_path) < 50:
+        return '<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999" stroke-width="2"/>', "0 0 100 100"
+    try:
+        tree = ET.parse(symbol_path)
+        root = tree.getroot()
+        
+        viewbox = root.attrib.get('viewBox')
+        if not viewbox:
+            w = root.attrib.get('width', '').replace('px', '').replace('mm', '').strip()
+            h = root.attrib.get('height', '').replace('px', '').replace('mm', '').strip()
+            if w and h:
+                try:
+                    viewbox = f"0 0 {float(w)} {float(h)}"
+                except ValueError:
+                    viewbox = "0 0 500 500"
+            else:
+                viewbox = "0 0 500 500"
+                
+        inner_parts = []
+        for child in root:
+            inner_parts.append(ET.tostring(child, encoding='unicode'))
+        symbol_inner = "".join(inner_parts)
+        if not symbol_inner.strip():
+            symbol_inner = ET.tostring(root, encoding='unicode')
+            
+        return symbol_inner, viewbox
+    except Exception as e:
+        print(f"[!] Error parsing symbol {symbol_path}: {e}")
+        return '<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999" stroke-width="2"/>', "0 0 100 100"
 
-    if not symbol_inner:
-        symbol_inner = f'<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999999" stroke-width="2" stroke-dasharray="5,5"/>'
+def generate_independent_decals(dept_code, symbol_path):
+    symbol_inner, viewbox = parse_svg_symbol(symbol_path)
+    
+    flag_cut_w = FLAG_W + (2 * MARGIN_CUT)
+    flag_cut_h = FLAG_H + (2 * MARGIN_CUT)
+    crest_cut_w = SYMBOL_SIZE + (2 * MARGIN_CUT)
+    crest_cut_h = SYMBOL_SIZE + (2 * MARGIN_CUT)
 
-    svg = f"""
-    <svg xmlns="http://www.w3.org/2000/svg" width="{DECAL_W + 2*BLEED}mm" height="{DECAL_H + 2*BLEED}mm" viewBox="0 0 {DECAL_W + 2*BLEED} {DECAL_H + 2*BLEED}">
-      <g transform="translate({BLEED}, {BLEED})">
-        <!-- French Flag (Top) with white reserve border: Width = 22mm (matches flag scale) -->
-        <g transform="translate(4.0, 3)">
-          <rect x="-1" y="-1" width="24" height="15.66" fill="#FFFFFF" rx="1.5" />
-          <rect x="0" y="0" width="22" height="13.66" fill="#FFFFFF" rx="1" />
-          <rect x="0" y="0" width="7.33" height="13.66" fill="{ROYAL_BLUE}" />
-          <rect x="7.33" y="0" width="7.33" height="13.66" fill="#FFFFFF" />
-          <rect x="14.66" y="0" width="7.33" height="13.66" fill="#ED2939" />
-        </g>
-
-        <!-- Department Symbol (Bottom) strictly bounded to width 22mm, height max 20mm with proportional centering -->
-        <g transform="translate(4.0, 20)">
-          <svg x="0" y="0" width="22" height="20" viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet">
-            {symbol_inner}
-          </svg>
-        </g>
+    flag_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{flag_cut_w}mm" height="{flag_cut_h}mm" viewBox="0 0 {flag_cut_w} {flag_cut_h}">
+      <g transform="translate({MARGIN_CUT}, {MARGIN_CUT})">
+        <rect x="0" y="0" width="{FLAG_W}" height="{FLAG_H}" fill="#FFFFFF" rx="1" />
+        <rect x="0" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="{ROYAL_BLUE}" />
+        <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
+        <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
       </g>
-      
-      <!-- Single Cut Contour around the entire piece -->
-      <rect x="{BLEED}" y="{BLEED}" width="{DECAL_W}" height="{DECAL_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
-    </svg>
-    """
-    return svg, symbol_inner, viewbox
+      <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+    </svg>"""
+
+    crest_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{crest_cut_w}mm" height="{crest_cut_h}mm" viewBox="0 0 {crest_cut_w} {crest_cut_h}">
+      <g transform="translate({MARGIN_CUT}, {MARGIN_CUT})">
+        <svg x="0" y="0" width="{SYMBOL_SIZE}" height="{SYMBOL_SIZE}" viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet">
+          {symbol_inner}
+        </svg>
+      </g>
+      <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+    </svg>"""
+
+    return flag_svg, crest_svg, symbol_inner, viewbox
 
 def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3"):
     sheet_w, sheet_h = SHEET_SIZES.get(sheet_type.upper(), SHEET_SIZES["A3"])
-    margin_x, margin_y = 12.0, 12.0
+    min_margin = 8.0
     gap = 2.0
     
-    total_w = DECAL_W + (2 * BLEED)
-    total_h = DECAL_H + (2 * BLEED)
+    flag_cut_w = FLAG_W + (2 * MARGIN_CUT)
+    flag_cut_h = FLAG_H + (2 * MARGIN_CUT)
+    crest_cut_w = SYMBOL_SIZE + (2 * MARGIN_CUT)
+    crest_cut_h = SYMBOL_SIZE + (2 * MARGIN_CUT)
     
-    usable_w = sheet_w - (2 * margin_x)
-    cols = int((usable_w + gap) // (total_w + gap))
+    item_w = max(flag_cut_w, crest_cut_w)
+    item_pair_h = flag_cut_h + crest_cut_h + gap
     
-    usable_h = sheet_h - (2 * margin_y)
-    rows = int((usable_h + gap) // (total_h + gap))
+    usable_w = sheet_w - (2 * min_margin)
+    cols = int((usable_w + gap) // (item_w + gap))
+    if cols < 1: cols = 1
     
-    total_items = cols * rows
+    usable_h = sheet_h - (2 * min_margin)
+    rows = int((usable_h + gap) // (item_pair_h + gap))
+    if rows < 1: rows = 1
+    
+    total_pairs = cols * rows
+    
+    grid_w = cols * item_w + (cols - 1) * gap
+    grid_h = rows * item_pair_h + (rows - 1) * gap
+    
+    margin_x = (sheet_w - grid_w) / 2.0
+    margin_y = (sheet_h - grid_h) / 2.0
 
     defs_section = f"""
     <defs>
-      <g id="single-decal-piece">
-        <g transform="translate({BLEED}, {BLEED})">
-          <g transform="translate(4.0, 3)">
-            <rect x="-1" y="-1" width="24" height="15.66" fill="#FFFFFF" rx="1.5" />
-            <rect x="0" y="0" width="22" height="13.66" fill="#FFFFFF" rx="1" />
-            <rect x="0" y="0" width="7.33" height="13.66" fill="{ROYAL_BLUE}" />
-            <rect x="7.33" y="0" width="7.33" height="13.66" fill="#FFFFFF" />
-            <rect x="14.66" y="0" width="7.33" height="13.66" fill="#ED2939" />
-          </g>
-
-          <g transform="translate(4.0, 20)">
-            <svg x="0" y="0" width="22" height="20" viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet">
-              {symbol_inner}
-            </svg>
-          </g>
+      <g id="decal-flag">
+        <g transform="translate({MARGIN_CUT}, {MARGIN_CUT})">
+          <rect x="0" y="0" width="{FLAG_W}" height="{FLAG_H}" fill="#FFFFFF" rx="1" />
+          <rect x="0" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="{ROYAL_BLUE}" />
+          <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
+          <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
         </g>
-        <rect x="{BLEED}" y="{BLEED}" width="{DECAL_W}" height="{DECAL_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
+        <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+      </g>
+
+      <g id="decal-crest">
+        <g transform="translate({MARGIN_CUT}, {MARGIN_CUT})">
+          <svg x="0" y="0" width="{SYMBOL_SIZE}" height="{SYMBOL_SIZE}" viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet">
+            {symbol_inner}
+          </svg>
+        </g>
+        <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
       </g>
     </defs>
     """
@@ -297,9 +334,10 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     grid_items = []
     for r in range(rows):
         for c in range(cols):
-            x = margin_x + c * (total_w + gap)
-            y = margin_y + r * (total_h + gap)
-            grid_items.append(f'<use href="#single-decal-piece" x="{x}" y="{y}" />')
+            x = margin_x + c * (item_w + gap)
+            y = margin_y + r * (item_pair_h + gap)
+            grid_items.append(f'<use href="#decal-flag" x="{x}" y="{y}" />')
+            grid_items.append(f'<use href="#decal-crest" x="{x}" y="{y + flag_cut_h + gap}" />')
 
     reg_marks = f"""
       <g stroke="#000000" stroke-width="0.25" fill="none">
@@ -317,7 +355,7 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
-  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">UNIFORM-SCALE DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
+  <text x="8" y="5" font-size="2.5" fill="#333333">CENTERED SHEET: Dept {dept_code} | Format: {sheet_type} | Pairs: {total_pairs} | Square CutContour</text>
   {defs_section}
   {''.join(grid_items)}
   {reg_marks}
@@ -347,22 +385,25 @@ if __name__ == "__main__":
         print(f"\\n[+] Processing Department {dept_code}...")
         symbol_path = fetch_symbol_if_needed(dept_code)
         if not symbol_path:
-            [!] Skipping Dept {dept_code} due to missing symbol."
+            print(f"[!] Skipping Dept {dept_code} due to missing symbol.")
             continue
 
-        decal_svg, symbol_inner, viewbox = generate_single_piece_svg(dept_code, symbol_path)
+        flag_svg, crest_svg, symbol_inner, viewbox = generate_independent_decals(dept_code, symbol_path)
         
-        with open(os.path.join("output", f"decal_single_{dept_code}.svg"), "w", encoding="utf-8") as f:
-            f.write(decal_svg)
+        with open(os.path.join("output", f"decal_flag_{dept_code}.svg"), "w", encoding="utf-8") as f:
+            f.write(flag_svg)
+        with open(os.path.join("output", f"decal_crest_{dept_code}.svg"), "w", encoding="utf-8") as f:
+            f.write(crest_svg)
 
         imposition_svg = generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_format)
-        sheet_file = os.path.join("output", f"imposition_single_{dept_code}_{sheet_format}.svg")
+        sheet_file = os.path.join("output", f"imposition_independent_{dept_code}_{sheet_format}.svg")
         with open(sheet_file, "w", encoding="utf-8") as f:
             f.write(imposition_svg)
-        print(f"[✓] Exported uniform-scale transparent decal imposition sheet -> {sheet_file}")
+        print(f"[✓] Exported centered imposition sheet -> {sheet_file}")
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated setup script: Added A5 and A6 sheet size formats.")
 
 if __name__ == "__main__":
     setup_project()
