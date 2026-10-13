@@ -14,12 +14,6 @@ SHEET_SIZES = {
     "SRA3": (320.0, 450.0),
 }
 
-BLEED = 1.5
-FLAG_W, FLAG_H = 25.0, 16.66
-CREST_W, CREST_H = 25.0, 25.0
-
-CUT_COLOR = "#FF007F"
-
 DEPT_WIKI_FILES = {
     "01": "Blason département fr Ain.svg", "02": "Blason département fr Aisne.svg",
     "03": "Blason département fr Allier.svg", "04": "Blason département fr Alpes-de-Haute-Provence.svg",
@@ -77,8 +71,8 @@ DEPT_WIKI_FILES = {
 }
 
 def print_help():
-    print("French License Plate Sticker Imposition Generator (Memory-Optimized)")
-    print("===================================================================")
+    print("French License Plate Single-Piece Decal Generator")
+    print("=================================================")
     print("Usage:")
     print("  python license_plates_sticker.py <dept_code> [sheet_format]")
     print("  python license_plates_sticker.py ALL [sheet_format]")
@@ -107,10 +101,12 @@ SHEET_SIZES = {
 }
 
 BLEED = 1.5
-FLAG_W, FLAG_H = 25.0, 16.66
-CREST_W, CREST_H = 25.0, 25.0
+# Combined single-piece dimensions (Width fits standard plate blue strip ~35mm, Height covers flag + symbol)
+DECAL_W = 35.0
+DECAL_H = 48.0
 
 CUT_COLOR = "#FF007F"
+ROYAL_BLUE = "#0055A5" # Bleu de France / Royal France Blue
 
 DEPT_WIKI_FILES = {
     "01": "Blason département fr Ain.svg", "02": "Blason département fr Aisne.svg",
@@ -219,19 +215,7 @@ def fetch_symbol_if_needed(dept_code):
             return None
     return None
 
-def generate_decal_set_svg(dept_code, symbol_path):
-    flag_svg = f"""
-    <svg xmlns="http://www.w3.org/2000/svg" width="{FLAG_W + 2*BLEED}mm" height="{FLAG_H + 2*BLEED}mm" viewBox="0 0 {FLAG_W + 2*BLEED} {FLAG_H + 2*BLEED}">
-      <g transform="translate({BLEED}, {BLEED})">
-        <rect x="0" y="0" width="{FLAG_W}" height="{FLAG_H}" fill="#FFFFFF" rx="1" />
-        <rect x="0" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#002395" />
-        <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
-        <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
-      </g>
-      <rect x="{BLEED}" y="{BLEED}" width="{FLAG_W}" height="{FLAG_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="1" id="CutContour" />
-    </svg>
-    """
-
+def generate_single_piece_svg(dept_code, symbol_path):
     symbol_inner = ""
     viewbox = "0 0 100 100"
     if symbol_path and os.path.exists(symbol_path) and os.path.getsize(symbol_path) > 100:
@@ -244,72 +228,81 @@ def generate_decal_set_svg(dept_code, symbol_path):
             symbol_inner = ""
 
     if not symbol_inner:
-        symbol_inner = f'<text x="{CREST_W/2}" y="{CREST_H/2}" font-family="Arial" font-size="5" fill="#000" text-anchor="middle">{dept_code}</text>'
+        symbol_inner = f'<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999999" stroke-width="2" stroke-dasharray="5,5"/>'
 
-    crest_svg = f"""
-    <svg xmlns="http://www.w3.org/2000/svg" width="{CREST_W + 2*BLEED}mm" height="{CREST_H + 2*BLEED}mm" viewBox="0 0 {CREST_W + 2*BLEED} {CREST_H + 2*BLEED}">
+    # Single-piece vertical strip layout: Flag on top, Symbol below, enclosed in a single white rounded backing card with ONE cut contour.
+    svg = f"""
+    <svg xmlns="http://www.w3.org/2000/svg" width="{DECAL_W + 2*BLEED}mm" height="{DECAL_H + 2*BLEED}mm" viewBox="0 0 {DECAL_W + 2*BLEED} {DECAL_H + 2*BLEED}">
       <g transform="translate({BLEED}, {BLEED})">
-        <rect x="0" y="0" width="{CREST_W}" height="{CREST_H}" fill="#FFFFFF" rx="3" />
-        <svg x="2" y="2" width="{CREST_W-4}" height="{CREST_H-4}" viewBox="{viewbox}">
-            {symbol_inner}
-        </svg>
-      </g>
-      <rect x="{BLEED}" y="{BLEED}" width="{CREST_W}" height="{CREST_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
-    </svg>
-    """
-    return flag_svg, crest_svg, symbol_inner, viewbox
-
-def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3"):
-    sheet_w, sheet_h = SHEET_SIZES.get(sheet_type.upper(), SHEET_SIZES["A3"])
-    margin_x, margin_y = 15.0, 15.0
-    gap = 3.0
-    
-    total_w_item = FLAG_W + (2 * BLEED)
-    total_h_flag = FLAG_H + (2 * BLEED)
-    total_h_crest = CREST_H + (2 * BLEED)
-    
-    usable_w = sheet_w - (2 * margin_x)
-    cols = int((usable_w + gap) // (total_w_item + gap))
-    usable_h = sheet_h - (2 * margin_y)
-
-    pair_h = total_h_flag + total_h_crest + gap + 5.0
-    pairs_per_col = int(usable_h // pair_h)
-    total_sets = cols * pairs_per_col
-
-    # Instanced XML symbols inside <defs> to keep memory footprint near zero
-    defs_section = f"""
-    <defs>
-      <!-- Single Flag Symbol Definition -->
-      <g id="decal-flag">
-        <g transform="translate({BLEED}, {BLEED})">
-          <rect x="0" y="0" width="{FLAG_W}" height="{FLAG_H}" fill="#FFFFFF" rx="1" />
-          <rect x="0" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#002395" />
-          <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
-          <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
+        <!-- Single White Backing Card -->
+        <rect x="0" y="0" width="{DECAL_W}" height="{DECAL_H}" fill="#FFFFFF" rx="3" />
+        
+        <!-- French Flag (Top) in Royal France Blue -->
+        <g transform="translate(5, 4)">
+          <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
+          <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
+          <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
+          <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
         </g>
-        <rect x="{BLEED}" y="{BLEED}" width="{FLAG_W}" height="{FLAG_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="1" id="CutContour" />
-      </g>
 
-      <!-- Single Crest Symbol Definition -->
-      <g id="decal-crest">
-        <g transform="translate({BLEED}, {BLEED})">
-          <rect x="0" y="0" width="{CREST_W}" height="{CREST_H}" fill="#FFFFFF" rx="3" />
-          <svg x="2" y="2" width="{CREST_W-4}" height="{CREST_H-4}" viewBox="{viewbox}">
+        <!-- Department Symbol (Bottom, replacing the old number zone) -->
+        <g transform="translate(5, 23)">
+          <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
             {symbol_inner}
           </svg>
         </g>
-        <rect x="{BLEED}" y="{BLEED}" width="{CREST_W}" height="{CREST_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
+      </g>
+      
+      <!-- Single Cut Contour around the entire piece -->
+      <rect x="{BLEED}" y="{BLEED}" width="{DECAL_W}" height="{DECAL_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
+    </svg>
+    """
+    return svg, symbol_inner, viewbox
+
+def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3"):
+    sheet_w, sheet_h = SHEET_SIZES.get(sheet_type.upper(), SHEET_SIZES["A3"])
+    margin_x, margin_y = 12.0, 12.0
+    gap = 2.5
+    
+    total_w = DECAL_W + (2 * BLEED)
+    total_h = DECAL_H + (2 * BLEED)
+    
+    usable_w = sheet_w - (2 * margin_x)
+    cols = int((usable_w + gap) // (total_w + gap))
+    
+    usable_h = sheet_h - (2 * margin_y)
+    rows = int((usable_h + gap) // (total_h + gap))
+    
+    total_items = cols * rows
+
+    defs_section = f"""
+    <defs>
+      <g id="single-decal-piece">
+        <g transform="translate({BLEED}, {BLEED})">
+          <rect x="0" y="0" width="{DECAL_W}" height="{DECAL_H}" fill="#FFFFFF" rx="3" />
+          <g transform="translate(5, 4)">
+            <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
+            <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
+            <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
+            <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
+          </g>
+          <g transform="translate(5, 23)">
+            <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
+              {symbol_inner}
+            </svg>
+          </g>
+        </g>
+        <rect x="{BLEED}" y="{BLEED}" width="{DECAL_W}" height="{DECAL_H}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="3" id="CutContour" />
       </g>
     </defs>
     """
 
     grid_items = []
-    for r in range(pairs_per_col):
+    for r in range(rows):
         for c in range(cols):
-            x = margin_x + c * (total_w_item + gap)
-            y = margin_y + r * pair_h
-            grid_items.append(f'<use href="#decal-flag" x="{x}" y="{y}" />')
-            grid_items.append(f'<use href="#decal-crest" x="{x}" y="{y + total_h_flag + 2.0}" />')
+            x = margin_x + c * (total_w + gap)
+            y = margin_y + r * (total_h + gap)
+            grid_items.append(f'<use href="#single-decal-piece" x="{x}" y="{y}" />')
 
     reg_marks = f"""
       <g stroke="#000000" stroke-width="0.25" fill="none">
@@ -327,7 +320,7 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
-  <text x="{margin_x}" y="{margin_y - 5}" font-size="4" fill="#333333">COMPACT DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Qty Pairs: {total_sets} | CutContour Enabled</text>
+  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">HIGH-DENSITY SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
   {defs_section}
   {''.join(grid_items)}
   {reg_marks}
@@ -360,21 +353,20 @@ if __name__ == "__main__":
             print(f"[!] Skipping Dept {dept_code} due to missing symbol.")
             continue
 
-        flag_svg, crest_svg, symbol_inner, viewbox = generate_decal_set_svg(dept_code, symbol_path)
+        decal_svg, symbol_inner, viewbox = generate_single_piece_svg(dept_code, symbol_path)
         
-        with open(os.path.join("output", f"decal_flag_{dept_code}.svg"), "w", encoding="utf-8") as f:
-            f.write(flag_svg)
-        with open(os.path.join("output", f"decal_crest_{dept_code}.svg"), "w", encoding="utf-8") as f:
-            f.write(crest_svg)
+        with open(os.path.join("output", f"decal_single_{dept_code}.svg"), "w", encoding="utf-8") as f:
+            f.write(decal_svg)
 
         imposition_svg = generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_format)
-        sheet_file = os.path.join("output", f"imposition_decals_{dept_code}_{sheet_format}.svg")
+        sheet_file = os.path.join("output", f"imposition_single_{dept_code}_{sheet_format}.svg")
         with open(sheet_file, "w", encoding="utf-8") as f:
             f.write(imposition_svg)
-        print(f"[✓] Exported compact decal imposition sheet -> {sheet_file}")
+        print(f"[✓] Exported high-density imposition sheet -> {sheet_file}")
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
+    print(f"[✓] Updated setup script: Single-piece cut contours, Royal France Blue, high-density imposition packing.")
 
 if __name__ == "__main__":
     setup_project()
