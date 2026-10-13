@@ -108,6 +108,7 @@ SHEET_SIZES = {
 FLAG_W, FLAG_H = 32.0, 21.33
 SYMBOL_SIZE = 32.0
 MARGIN_CUT = 2.0
+CORNER_RADIUS = 2.0  # Subtle rounded corners for kiss-cut contours
 
 CUT_COLOR = "#FF007F"
 ROYAL_BLUE = "#0055A5"
@@ -265,7 +266,7 @@ def generate_independent_decals(dept_code, symbol_path):
         <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
         <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
       </g>
-      <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+      <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" id="CutContour" />
     </svg>"""
 
     crest_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{crest_cut_w}mm" height="{crest_cut_h}mm" viewBox="0 0 {crest_cut_w} {crest_cut_h}">
@@ -274,7 +275,7 @@ def generate_independent_decals(dept_code, symbol_path):
           {symbol_inner}
         </svg>
       </g>
-      <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+      <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" id="CutContour" />
     </svg>"""
 
     return flag_svg, crest_svg, symbol_inner, viewbox
@@ -317,7 +318,7 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
           <rect x="{FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#FFFFFF" />
           <rect x="{2*FLAG_W/3}" y="0" width="{FLAG_W/3}" height="{FLAG_H}" fill="#ED2939" />
         </g>
-        <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+        <rect x="0" y="0" width="{flag_cut_w}" height="{flag_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" id="CutContour" />
       </g>
 
       <g id="decal-crest">
@@ -326,7 +327,7 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
             {symbol_inner}
           </svg>
         </g>
-        <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="0" id="CutContour" />
+        <rect x="0" y="0" width="{crest_cut_w}" height="{crest_cut_h}" fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" id="CutContour" />
       </g>
     </defs>
     """
@@ -355,7 +356,7 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
-  <text x="8" y="5" font-size="2.5" fill="#333333">CENTERED SHEET: Dept {dept_code} | Format: {sheet_type} | Pairs: {total_pairs} | Square CutContour</text>
+  <text x="8" y="5" font-size="2.5" fill="#333333">CENTERED SHEET: Dept {dept_code} | Format: {sheet_type} | Pairs: {total_pairs} | Rounded CutContour (r=2mm)</text>
   {defs_section}
   {''.join(grid_items)}
   {reg_marks}
@@ -403,7 +404,6 @@ if __name__ == "__main__":
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
-    print(f"[✓] Updated setup script: Added A5 and A6 sheet size formats.")
 
 if __name__ == "__main__":
     setup_project()
