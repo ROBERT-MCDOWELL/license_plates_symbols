@@ -71,8 +71,8 @@ DEPT_WIKI_FILES = {
 }
 
 def print_help():
-    print("French License Plate Single-Piece Decal Generator")
-    print("=================================================")
+    print("French License Plate Transparent Single-Piece Decal Generator")
+    print("==========================================================")
     print("Usage:")
     print("  python license_plates_sticker.py <dept_code> [sheet_format]")
     print("  python license_plates_sticker.py ALL [sheet_format]")
@@ -101,12 +101,11 @@ SHEET_SIZES = {
 }
 
 BLEED = 1.5
-# Combined single-piece dimensions (Width fits standard plate blue strip ~35mm, Height covers flag + symbol)
 DECAL_W = 35.0
 DECAL_H = 48.0
 
 CUT_COLOR = "#FF007F"
-ROYAL_BLUE = "#0055A5" # Bleu de France / Royal France Blue
+ROYAL_BLUE = "#0055A5" # Bleu de France
 
 DEPT_WIKI_FILES = {
     "01": "Blason département fr Ain.svg", "02": "Blason département fr Aisne.svg",
@@ -230,22 +229,24 @@ def generate_single_piece_svg(dept_code, symbol_path):
     if not symbol_inner:
         symbol_inner = f'<rect x="10" y="10" width="80" height="80" fill="none" stroke="#999999" stroke-width="2" stroke-dasharray="5,5"/>'
 
-    # Single-piece vertical strip layout: Flag on top, Symbol below, enclosed in a single white rounded backing card with ONE cut contour.
+    # Transparent background everywhere EXCEPT behind the flag (thin white reserve rectangle)
     svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="{DECAL_W + 2*BLEED}mm" height="{DECAL_H + 2*BLEED}mm" viewBox="0 0 {DECAL_W + 2*BLEED} {DECAL_H + 2*BLEED}">
       <g transform="translate({BLEED}, {BLEED})">
-        <!-- Single White Backing Card -->
-        <rect x="0" y="0" width="{DECAL_W}" height="{DECAL_H}" fill="#FFFFFF" rx="3" />
-        
-        <!-- French Flag (Top) in Royal France Blue -->
+        <!-- Transparent Canvas (No solid white background rectangle) -->
+
+        <!-- French Flag (Top) with a thin White Reserve Border -->
         <g transform="translate(5, 4)">
+          <!-- White Reserve / Border behind the flag -->
+          <rect x="-1" y="-1" width="27" height="18.66" fill="#FFFFFF" rx="1.5" />
+          <!-- Royal Blue Flag -->
           <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
           <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
           <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
           <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
         </g>
 
-        <!-- Department Symbol (Bottom, replacing the old number zone) -->
+        <!-- Department Symbol (Bottom) floating directly on transparent vinyl with NO border -->
         <g transform="translate(5, 23)">
           <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
             {symbol_inner}
@@ -279,13 +280,15 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
     <defs>
       <g id="single-decal-piece">
         <g transform="translate({BLEED}, {BLEED})">
-          <rect x="0" y="0" width="{DECAL_W}" height="{DECAL_H}" fill="#FFFFFF" rx="3" />
+          <!-- Transparent background: Flag has white reserve, Symbol is borderless -->
           <g transform="translate(5, 4)">
+            <rect x="-1" y="-1" width="27" height="18.66" fill="#FFFFFF" rx="1.5" />
             <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
             <rect x="0" y="0" width="8.33" height="16.66" fill="{ROYAL_BLUE}" />
             <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
             <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
           </g>
+
           <g transform="translate(5, 23)">
             <svg x="0" y="0" width="25" height="22" viewBox="{viewbox}">
               {symbol_inner}
@@ -313,14 +316,14 @@ def generate_imposition_sheet(dept_code, symbol_inner, viewbox, sheet_type="A3")
         <circle cx="8" cy="{sheet_h - 8}" r="4" />
         <line x1="2" y1="{sheet_h - 8}" x2="14" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
         <circle cx="{sheet_w - 8}" cy="{sheet_h - 8}" r="4" />
-        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="8" y1="{sheet_h - 14}" x2="8" y2="{sheet_h - 2}" />
+        <line x1="{sheet_w - 14}" y1="{sheet_h - 8}" x2="{sheet_w - 2}" y2="{sheet_h - 8}" /> <line x1="{sheet_w - 8}" y1="{sheet_h - 14}" x2="{sheet_w - 8}" y2="{sheet_h - 2}" />
       </g>
     """
 
     imposition_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_w}mm" height="{sheet_h}mm" viewBox="0 0 {sheet_w} {sheet_h}">
   <style> text {{ font-family: Arial, sans-serif; }} </style>
   <rect width="{sheet_w}" height="{sheet_h}" fill="#FFFFFF" />
-  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">HIGH-DENSITY SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
+  <text x="{margin_x}" y="{margin_y - 4}" font-size="4" fill="#333333">TRANSPARENT DECAL SHEET: Dept {dept_code} | Format: {sheet_type} | Total Pieces: {total_items} | CutContour Enabled</text>
   {defs_section}
   {''.join(grid_items)}
   {reg_marks}
@@ -362,11 +365,11 @@ if __name__ == "__main__":
         sheet_file = os.path.join("output", f"imposition_single_{dept_code}_{sheet_format}.svg")
         with open(sheet_file, "w", encoding="utf-8") as f:
             f.write(imposition_svg)
-        print(f"[✓] Exported high-density imposition sheet -> {sheet_file}")
+        print(f"[✓] Exported transparent decal imposition sheet -> {sheet_file}")
 '''
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
-    print(f"[✓] Updated setup script: Single-piece cut contours, Royal France Blue, high-density imposition packing.")
+    print(f"[✓] Updated setup script: Transparent decal, white flag reserve border, borderless symbol.")
 
 if __name__ == "__main__":
     setup_project()
