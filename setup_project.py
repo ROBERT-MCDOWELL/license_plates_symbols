@@ -208,14 +208,19 @@ def fetch_symbol_if_needed(dept_code):
     return None
 
 def generate_single_sticker_svg(dept_code, symbol_path):
-    french_flag = \"\"\"
+    # French flag with a solid white background card
+    french_flag = """
       <g id="french-flag">
+        <!-- Solid white background rectangle for the flag -->
+        <rect x="0" y="0" width="25" height="16.66" fill="#FFFFFF" rx="1" />
+        <!-- Tricolor stripes -->
         <rect x="0" y="0" width="8.33" height="16.66" fill="#002395" />
         <rect x="8.33" y="0" width="8.33" height="16.66" fill="#FFFFFF" />
         <rect x="16.66" y="0" width="8.33" height="16.66" fill="#ED2939" />
-        <rect x="0" y="0" width="25" height="16.66" fill="none" stroke="#FFFFFF" stroke-width="0.3" opacity="0.4"/>
+        <!-- Subtle border outline -->
+        <rect x="0" y="0" width="25" height="16.66" fill="none" stroke="#CCCCCC" stroke-width="0.3" rx="1"/>
       </g>
-    \"\"\"
+    """
 
     symbol_markup = ""
     if symbol_path and os.path.exists(symbol_path) and os.path.getsize(symbol_path) > 100:
@@ -223,20 +228,22 @@ def generate_single_sticker_svg(dept_code, symbol_path):
             tree = ET.parse(symbol_path)
             root = tree.getroot()
             symbol_inner = "".join([ET.tostring(child, encoding='unicode') for child in root])
-            symbol_markup = f\"\"\"
-            <g id="dept-symbol" transform="translate(12, 66)">
-                <svg width="25" height="25" viewBox="{root.attrib.get('viewBox', '0 0 100 100')}">
+            symbol_markup = f"""
+            <g id="dept-symbol" transform="translate(10, 36)">
+                <!-- Solid white background card for the department symbol -->
+                <rect x="0" y="0" width="25" height="25" fill="#FFFFFF" rx="1" stroke="#CCCCCC" stroke-width="0.3"/>
+                <svg x="0" y="0" width="25" height="25" viewBox="{root.attrib.get('viewBox', '0 0 100 100')}">
                     {symbol_inner}
                 </svg>
             </g>
-            \"\"\"
+            """
         except Exception:
             symbol_markup = ""
 
     if not symbol_markup:
-        return None  # Return None if symbol is missing/invalid so we don't generate placeholder sheets
+        return None
 
-    svg = f\"\"\"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{TOTAL_W}mm" height="{TOTAL_H}mm" viewBox="0 0 {TOTAL_W} {TOTAL_H}">
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{TOTAL_W}mm" height="{TOTAL_H}mm" viewBox="0 0 {TOTAL_W} {TOTAL_H}">
   <defs>
     {french_flag}
     <clipPath id="sticker-cut">
@@ -244,28 +251,23 @@ def generate_single_sticker_svg(dept_code, symbol_path):
     </clipPath>
   </defs>
 
-  <rect x="0" y="0" width="{TOTAL_W}" height="{TOTAL_H}" fill="{REFLEX_BLUE}" />
+  <!-- TRANSPARENT BACKGROUND (Allows original plate texture and 'F' to show through) -->
+  <rect x="0" y="0" width="{TOTAL_W}" height="{TOTAL_H}" fill="none" />
 
   <g clip-path="url(#sticker-cut)">
-    <g transform="translate(12, 6)">
+    <!-- Top: French Flag with Solid White Background -->
+    <g transform="translate(10, 6)">
       <use href="#french-flag" />
     </g>
 
-    <text x="24.5" y="47" 
-          font-family="Arial, Helvetica, sans-serif" 
-          font-weight="900" 
-          font-size="22" 
-          fill="#FFFFFF" 
-          text-anchor="middle" 
-          dominant-baseline="central" 
-          letter-spacing="-0.5">{dept_code}</text>
-
+    <!-- Center/Bottom: Department Symbol with Solid White Background -->
     {symbol_markup}
   </g>
 
+  <!-- KISS-CUT / DIE-CUT LINE -->
   <rect x="{BLEED}" y="{BLEED}" width="{STICKER_WIDTH}" height="{STICKER_HEIGHT}" rx="{CORNER_RADIUS}" ry="{CORNER_RADIUS}" 
         fill="none" stroke="{CUT_COLOR}" stroke-width="0.25" id="CutContour" />
-</svg>\"\"\"
+</svg>"""
     return svg
 
 def generate_imposition_sheet(dept_code, single_svg_str, sheet_type="A3"):
